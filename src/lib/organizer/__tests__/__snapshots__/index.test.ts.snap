@@ -1,0 +1,16 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`organizeByScriptType groups files by script type and creates directories 1`] = `
+Object {
+  "json": Array [
+    "config.json",
+  ],
+  "md": Array [
+    "README.md",
+  ],
+  "ts": Array [
+    "app.ts",
+    "server.ts",
+  ],
+}
+`;
