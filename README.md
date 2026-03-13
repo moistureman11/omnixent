@@ -37,6 +37,10 @@ the following APIs (list will be updated as soon as new features roll out).
 
 Follow the [installation guide](https://omnixent.github.io/docs/#/deploy/docker-compose).
 
+## Examples
+
+- [Using Omnixent with Zygisk and LSPosed](docs/examples/zygisk-lsposed.md) – discover what the Android modding community searches for related to Zygisk and LSPosed.
+
 ## License
 
 **Omnixent** is licensed under the [GPLv3 License](/LICENSE.md)
