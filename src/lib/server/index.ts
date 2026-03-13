@@ -7,6 +7,7 @@ import * as dotenv from 'dotenv';
 import apiV1PublicRoutes from './routes/v1/public';
 import apiV1PrivateRoutes from './routes/v1/private';
 import apiV1AvailabilityRoutes from './routes/v1/availability';
+import apiV1OrganizerRoutes from './routes/v1/organizer';
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ export default function init() {
   app.use('/v1', apiV1PublicRoutes);
   app.use('/v1', apiV1PrivateRoutes);
   app.use('/v1', apiV1AvailabilityRoutes);
+  app.use('/v1', apiV1OrganizerRoutes);
   app.use('/', (_, res) => res.json({ success: true }));
 
   if (process.env.NODE_ENV !== 'test') {
