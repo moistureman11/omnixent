@@ -17,8 +17,7 @@
     "run:docker": "node ./src/main.js",
     "semantic-release": "semantic-release",
     "test": "export $(grep -v '^#' .env.test | xargs) && jest --coverage",
-    "upgrade-interactive": "npm-check --update",
-    "preinstall": "node preinstall.js"
+    "upgrade-interactive": "npm-check --update"
   },
   "dependencies": {
     "@types/express": "^4.17.11",
