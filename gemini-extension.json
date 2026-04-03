@@ -1,0 +1,14 @@
+{
+  "name": "omnixent",
+  "version": "0.0.1",
+  "description": "The search engine of search engines — aggregates autocomplete suggestions from Google, YouTube, Amazon, DuckDuckGo, and Bing.",
+  "mcpServers": {
+    "omnixent": {
+      "command": "node",
+      "args": ["${extensionPath}${/}dist${/}main.js"],
+      "env": {
+        "PORT": "3000"
+      }
+    }
+  }
+}
