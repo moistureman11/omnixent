@@ -54,4 +54,41 @@ describe('Testing forensic audit route', () => {
     expect(res.status).toBe(422);
     expect(res.body.success).toBeFalsy();
   });
+
+  it('Should fail when findings have invalid shape', async () => {
+    const invalidFindingPayload = {
+      ...validPayload,
+      findings: [
+        {
+          observedAt: '2026-01-01T10:00:00.000Z',
+          content: 'missing source type',
+        },
+      ],
+    };
+
+    const res = await supertest(app)
+      .post('/v1/private/audit')
+      .set('x-omnixent-auth', 'JHgjQporKoi9rCD1wqkNNAirVBzRod')
+      .send(invalidFindingPayload);
+
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBeFalsy();
+    expect(res.body.reason).toBe('Invalid audit payload');
+  });
+
+  it('Should fail with misconfiguration when manifest secret is missing', async () => {
+    const previousSecret = process.env.FORENSIC_MANIFEST_SECRET;
+    delete process.env.FORENSIC_MANIFEST_SECRET;
+
+    const res = await supertest(app)
+      .post('/v1/private/audit')
+      .set('x-omnixent-auth', 'JHgjQporKoi9rCD1wqkNNAirVBzRod')
+      .send(validPayload);
+
+    process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
+
+    expect(res.status).toBe(500);
+    expect(res.body.success).toBeFalsy();
+    expect(res.body.reason).toBe('Forensic audit service misconfigured');
+  });
 });

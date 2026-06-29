@@ -1,5 +1,5 @@
 process.env.FORENSIC_MANIFEST_SECRET = 'forensic-test-secret';
-import runForensicAudit from '../index';
+import runForensicAudit, { InvalidForensicDateError, MissingManifestSecretError } from '../index';
 import { ForensicAuditRequest } from '../types';
 
 function getPayload(): ForensicAuditRequest {
@@ -93,5 +93,22 @@ describe('forensic audit pipeline', () => {
     expect(derived?.iocs).toContain('bad-domain.example');
     expect(detection).toBeDefined();
     expect(detection?.indicators.some((indicator) => indicator.includes('artifact:'))).toBeTruthy();
+  });
+
+  it('throws a forensic date validation error for invalid observedAt values', () => {
+    const payload = getPayload();
+    payload.findings[0].observedAt = '2026-01-01 10:00:00';
+
+    expect(() => runForensicAudit(payload)).toThrow(InvalidForensicDateError);
+  });
+
+  it('throws a manifest configuration error when secret is missing', () => {
+    const payload = getPayload();
+    const previousSecret = process.env.FORENSIC_MANIFEST_SECRET;
+    delete process.env.FORENSIC_MANIFEST_SECRET;
+
+    expect(() => runForensicAudit(payload)).toThrow(MissingManifestSecretError);
+
+    process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
   });
 });

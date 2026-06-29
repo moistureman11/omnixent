@@ -36,6 +36,20 @@ const SUSPICIOUS_ARTIFACT_PATTERNS: Array<{ label: string; matcher: RegExp }> = 
   { label: 'pid-persistence', matcher: /\.pid\b|port_guard_[a-z0-9_-]+/i },
 ];
 
+export class InvalidForensicDateError extends Error {
+  constructor(value: string) {
+    super(`Invalid ISO-8601 date: ${value}`);
+    this.name = 'InvalidForensicDateError';
+  }
+}
+
+export class MissingManifestSecretError extends Error {
+  constructor() {
+    super('FORENSIC_MANIFEST_SECRET must be set');
+    this.name = 'MissingManifestSecretError';
+  }
+}
+
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(stableStringify).join(',')}]`;
@@ -57,7 +71,7 @@ function createHash(payload: string): string {
 
 function normalizeDate(value: string): string {
   if (!ISO_DATE_REGEX.test(value)) {
-    throw new Error(`Invalid ISO-8601 date: ${value}`);
+    throw new InvalidForensicDateError(value);
   }
 
   return value;
@@ -376,7 +390,7 @@ function getManifestSecret(): string {
   const secret = process.env.FORENSIC_MANIFEST_SECRET;
 
   if (!secret) {
-    throw new Error('FORENSIC_MANIFEST_SECRET must be set');
+    throw new MissingManifestSecretError();
   }
 
   return String(secret);
