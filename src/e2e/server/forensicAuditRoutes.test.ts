@@ -1,3 +1,4 @@
+process.env.FORENSIC_MANIFEST_SECRET = 'forensic-test-secret';
 import supertest from 'supertest';
 import server from '../../lib/server';
 

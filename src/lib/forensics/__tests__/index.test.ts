@@ -1,3 +1,4 @@
+process.env.FORENSIC_MANIFEST_SECRET = 'forensic-test-secret';
 import runForensicAudit from '../index';
 import { ForensicAuditRequest } from '../types';
 

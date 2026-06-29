@@ -319,6 +319,7 @@ export function detectMaliciousActivity(
     const ruleScore = Math.min(1, keywordHits.length * 0.2 + item.iocs.length * 0.15);
     const heuristicScore = Math.min(1, relatedEdges.length * 0.12 + item.entities.length * 0.08);
     const modelSeed = parseInt(item.integrity.hash.slice(0, 6), 16);
+    // Deterministic placeholder score until a trained model is integrated.
     const modelScore = Number((((modelSeed % 100) / 100) * 0.6 + 0.2).toFixed(2));
     const confidence = Number(((ruleScore * 0.45 + heuristicScore * 0.35 + modelScore * 0.2) * 100).toFixed(2));
 
@@ -335,10 +336,10 @@ export function detectMaliciousActivity(
 }
 
 function getManifestSecret(): string {
-  const secret = process.env.FORENSIC_MANIFEST_SECRET || process.env.OMNIXENT_JWT_SECRET;
+  const secret = process.env.FORENSIC_MANIFEST_SECRET;
 
   if (!secret) {
-    throw new Error('FORENSIC_MANIFEST_SECRET or OMNIXENT_JWT_SECRET must be set');
+    throw new Error('FORENSIC_MANIFEST_SECRET must be set');
   }
 
   return String(secret);
@@ -391,10 +392,6 @@ export function createIntegrityPipeline(
   };
 }
 
-function escapeSqlLiteral(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
 export function createExplainableReport(
   caseId: string,
   evidence: CanonicalEvidence[],
@@ -404,8 +401,6 @@ export function createExplainableReport(
   const findings = detections.map((detection) => {
     const evidenceItem = evidence.find((item) => item.evidenceId === detection.evidenceId);
     const sourceRef = evidenceItem ? `${evidenceItem.sourceType}:${evidenceItem.location}` : 'unknown';
-    const safeEvidenceId = escapeSqlLiteral(detection.evidenceId);
-
     return {
       evidenceId: detection.evidenceId,
       malicious: detection.malicious,
@@ -413,8 +408,8 @@ export function createExplainableReport(
       rationale: detection.indicators.length ? detection.indicators : ['No direct indicators identified'],
       rawEvidenceRefs: [sourceRef],
       reproducibleQueries: [
-        `SELECT * FROM canonical_evidence WHERE evidence_id = '${safeEvidenceId}'`,
-        `SELECT * FROM detections WHERE evidence_id = '${safeEvidenceId}'`,
+        'SELECT * FROM canonical_evidence WHERE evidence_id = ?',
+        'SELECT * FROM detections WHERE evidence_id = ?',
       ],
     };
   });

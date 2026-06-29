@@ -18,7 +18,7 @@ function isValidRequestBody(body: ForensicAuditRequest): boolean {
   );
 }
 
-export default async function forensicAuditController(req: Request, res: Response) {
+export default function forensicAuditController(req: Request, res: Response) {
   const auth = req.header('x-omnixent-auth');
 
   try {
@@ -30,7 +30,6 @@ export default async function forensicAuditController(req: Request, res: Respons
       return;
     }
   } catch (e) {
-    console.log(e);
     res.status(401).json({
       success: false,
       reason: 'Unauthorized',
@@ -55,7 +54,6 @@ export default async function forensicAuditController(req: Request, res: Respons
       result,
     });
   } catch (e) {
-    console.log(e);
     res.status(500).json({
       success: false,
       reason: 'Unable to process forensic audit request',
