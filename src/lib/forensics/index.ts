@@ -21,6 +21,20 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 const DEFAULT_TIME_WINDOW_MINUTES = 10;
 const MAX_CONTENT_PREVIEW_LENGTH = 280;
 const MALICIOUS_CONFIDENCE_THRESHOLD = 55;
+const IPV4_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+const DOMAIN_REGEX = /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b/g;
+const HASH_REGEX = /\b(?:sha(?:1|224|256|384|512):)?[a-f0-9]{32,128}\b/g;
+
+const SUSPICIOUS_ARTIFACT_PATTERNS: Array<{ label: string; matcher: RegExp }> = [
+  { label: 'traffic-capture', matcher: /\.har\b/i },
+  { label: 'db-write-ahead-log', matcher: /\.db-wal\b/i },
+  { label: 'notebook-staging', matcher: /\.ipynb\b/i },
+  { label: 'macos-plist', matcher: /\.plist\b/i },
+  { label: 'jvm-bytecode', matcher: /\.class\b/i },
+  { label: 'python-cache', matcher: /__pycache__|\.pyc\b/i },
+  { label: 'background-listener', matcher: /\b[a-z0-9_-]*(listener|daemon)[a-z0-9_-]*\b/i },
+  { label: 'pid-persistence', matcher: /\.pid\b|port_guard_[a-z0-9_-]+/i },
+];
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
@@ -67,6 +81,17 @@ function normalizeIocs(iocs?: string[]): string[] {
     .map((ioc) => ioc.trim().toLowerCase())
     .filter((ioc) => ioc.length > 0)
     .filter((ioc, index, arr) => arr.indexOf(ioc) === index);
+}
+
+function extractIocsFromText(text: string): string[] {
+  const lowered = text.toLowerCase();
+  const matches = [
+    ...(lowered.match(IPV4_REGEX) || []),
+    ...(lowered.match(DOMAIN_REGEX) || []),
+    ...(lowered.match(HASH_REGEX) || []),
+  ];
+
+  return normalizeIocs(matches);
 }
 
 function parseBySourceType(sourceType: EvidenceSourceType, finding: RawFinding): RawFinding {
@@ -137,7 +162,10 @@ function toCanonicalEvidence(finding: RawFinding, index: number, ingestedAt: str
   const observedAt = normalizeDate(parsedFinding.observedAt);
   const metadata = parsedFinding.metadata || {};
   const contentPreview = String(parsedFinding.content || '').slice(0, MAX_CONTENT_PREVIEW_LENGTH);
-  const normalizedIocs = normalizeIocs(parsedFinding.iocs);
+  const derivedText = `${contentPreview} ${parsedFinding.location || ''} ${Object.values(metadata)
+    .map((value) => String(value))
+    .join(' ')}`;
+  const normalizedIocs = normalizeIocs([...normalizeIocs(parsedFinding.iocs), ...extractIocsFromText(derivedText)]);
   const normalizedEntities = normalizeEntities(parsedFinding.entities);
   const fingerprint = stableStringify({
     sourceType: parsedFinding.sourceType,
@@ -297,11 +325,20 @@ export function detectMaliciousActivity(
 
   return evidence.map((item) => {
     const indicators: string[] = [];
-    const content = item.contentPreview.toLowerCase();
+    const evidenceText = `${item.contentPreview} ${item.location} ${Object.values(item.metadata)
+      .map((value) => String(value))
+      .join(' ')}`.toLowerCase();
 
-    const keywordHits = suspiciousKeywords.filter((keyword) => content.includes(keyword));
+    const keywordHits = suspiciousKeywords.filter((keyword) => evidenceText.includes(keyword));
     if (keywordHits.length > 0) {
       indicators.push(`keyword:${keywordHits.join('|')}`);
+    }
+
+    const artifactHits = SUSPICIOUS_ARTIFACT_PATTERNS.filter((pattern) => pattern.matcher.test(evidenceText)).map(
+      (pattern) => pattern.label,
+    );
+    if (artifactHits.length > 0) {
+      indicators.push(`artifact:${artifactHits.join('|')}`);
     }
 
     if (item.iocs.length > 0) {
@@ -316,7 +353,7 @@ export function detectMaliciousActivity(
       indicators.push(`correlations:${relatedEdges.length}`);
     }
 
-    const ruleScore = Math.min(1, keywordHits.length * 0.2 + item.iocs.length * 0.15);
+    const ruleScore = Math.min(1, keywordHits.length * 0.2 + item.iocs.length * 0.15 + artifactHits.length * 0.15);
     const heuristicScore = Math.min(1, relatedEdges.length * 0.12 + item.entities.length * 0.08);
     const modelSeed = parseInt(item.integrity.hash.slice(0, 6), 16);
     // Deterministic placeholder score until a trained model is integrated.

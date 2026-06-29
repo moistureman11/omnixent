@@ -73,4 +73,25 @@ describe('forensic audit pipeline', () => {
     expect(result.legalAssessment.gaps).toContain('At least one admissibility standard is required.');
     expect(result.legalAssessment.gaps).toContain('Retention policy must be at least 1 day.');
   });
+
+  it('derives iocs and artifact indicators from evidence text', () => {
+    const payload = getPayload();
+    payload.findings.push({
+      id: 'file-2',
+      sourceType: 'file',
+      observedAt: '2026-01-01T10:06:00.000Z',
+      location: '/tmp/network-log.har',
+      content: 'Metrics.db-wal links to bad-domain.example and 192.168.1.10 for c2',
+    });
+
+    const result = runForensicAudit(payload);
+    const derived = result.canonicalEvidence.find((item) => item.evidenceId === 'file-2');
+    const detection = result.detections.find((item) => item.evidenceId === 'file-2');
+
+    expect(derived).toBeDefined();
+    expect(derived?.iocs).toContain('192.168.1.10');
+    expect(derived?.iocs).toContain('bad-domain.example');
+    expect(detection).toBeDefined();
+    expect(detection?.indicators.some((indicator) => indicator.includes('artifact:'))).toBeTruthy();
+  });
 });
