@@ -80,15 +80,17 @@ describe('Testing forensic audit route', () => {
     const previousSecret = process.env.FORENSIC_MANIFEST_SECRET;
     delete process.env.FORENSIC_MANIFEST_SECRET;
 
-    const res = await supertest(app)
-      .post('/v1/private/audit')
-      .set('x-omnixent-auth', 'JHgjQporKoi9rCD1wqkNNAirVBzRod')
-      .send(validPayload);
+    try {
+      const res = await supertest(app)
+        .post('/v1/private/audit')
+        .set('x-omnixent-auth', 'JHgjQporKoi9rCD1wqkNNAirVBzRod')
+        .send(validPayload);
 
-    process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
-
-    expect(res.status).toBe(500);
-    expect(res.body.success).toBeFalsy();
-    expect(res.body.reason).toBe('Forensic audit service misconfigured');
+      expect(res.status).toBe(500);
+      expect(res.body.success).toBeFalsy();
+      expect(res.body.reason).toBe('Forensic audit service misconfigured');
+    } finally {
+      process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
+    }
   });
 });

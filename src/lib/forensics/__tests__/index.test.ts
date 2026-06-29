@@ -107,8 +107,10 @@ describe('forensic audit pipeline', () => {
     const previousSecret = process.env.FORENSIC_MANIFEST_SECRET;
     delete process.env.FORENSIC_MANIFEST_SECRET;
 
-    expect(() => runForensicAudit(payload)).toThrow(MissingManifestSecretError);
-
-    process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
+    try {
+      expect(() => runForensicAudit(payload)).toThrow(MissingManifestSecretError);
+    } finally {
+      process.env.FORENSIC_MANIFEST_SECRET = previousSecret;
+    }
   });
 });
