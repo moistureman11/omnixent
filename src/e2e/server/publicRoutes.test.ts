@@ -1,6 +1,8 @@
 import supertest from 'supertest';
 import server from '../../lib/server';
 
+jest.mock('../../lib/services', () => require('./testUtils/serviceMock').serviceModuleMock);
+
 const app = server();
 
 describe('Testing public routes', () => {

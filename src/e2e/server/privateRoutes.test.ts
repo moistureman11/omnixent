@@ -2,6 +2,8 @@ import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
 import server from '../../lib/server';
 
+jest.mock('../../lib/services', () => require('./testUtils/serviceMock').serviceModuleMock);
+
 const app = server();
 
 describe('Testing private routes', () => {
