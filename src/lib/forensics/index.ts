@@ -21,6 +21,7 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 const DEFAULT_TIME_WINDOW_MINUTES = 10;
 const MAX_CONTENT_PREVIEW_LENGTH = 280;
 const MALICIOUS_CONFIDENCE_THRESHOLD = 55;
+const UNSAFE_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const IPV4_REGEX = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 const DOMAIN_REGEX = /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\b/g;
 const HASH_REGEX = /\b(?:sha(?:1|224|256|384|512):)?[a-f0-9]{32,128}\b/g;
@@ -77,6 +78,28 @@ function normalizeDate(value: string): string {
   return value;
 }
 
+function sanitizeMetadata(
+  metadata?: Record<string, string | number | boolean | null>,
+): Record<string, string | number | boolean | null> {
+  if (!metadata) {
+    return {};
+  }
+
+  const sanitized: Record<string, string | number | boolean | null> = {};
+  Object.keys(metadata).forEach((key) => {
+    if (UNSAFE_OBJECT_KEYS.has(key)) {
+      return;
+    }
+
+    const value = metadata[key];
+    if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) {
+      sanitized[key] = typeof value === 'string' ? value.trim() : value;
+    }
+  });
+
+  return sanitized;
+}
+
 function normalizeEntities(entities?: EvidenceEntity[]): EvidenceEntity[] {
   if (!entities) return [];
 
@@ -109,7 +132,7 @@ function extractIocsFromText(text: string): string[] {
 }
 
 function parseBySourceType(sourceType: EvidenceSourceType, finding: RawFinding): RawFinding {
-  const metadata = { ...(finding.metadata || {}) };
+  const metadata = sanitizeMetadata(finding.metadata);
 
   switch (sourceType) {
     case 'network':
@@ -174,7 +197,7 @@ function parseBySourceType(sourceType: EvidenceSourceType, finding: RawFinding):
 function toCanonicalEvidence(finding: RawFinding, index: number, ingestedAt: string): CanonicalEvidence {
   const parsedFinding = parseBySourceType(finding.sourceType, finding);
   const observedAt = normalizeDate(parsedFinding.observedAt);
-  const metadata = parsedFinding.metadata || {};
+  const metadata = sanitizeMetadata(parsedFinding.metadata);
   const contentPreview = String(parsedFinding.content || '').slice(0, MAX_CONTENT_PREVIEW_LENGTH);
   const derivedText = `${contentPreview} ${parsedFinding.location || ''} ${Object.values(metadata)
     .map((value) => String(value))

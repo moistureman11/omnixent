@@ -102,6 +102,17 @@ describe('forensic audit pipeline', () => {
     expect(() => runForensicAudit(payload)).toThrow(InvalidForensicDateError);
   });
 
+  it('sanitizes metadata keys and string values before canonicalization', () => {
+    const payload = getPayload();
+    payload.findings[0].metadata = JSON.parse('{"protocol":" https ","__proto__":"pollution"}');
+
+    const result = runForensicAudit(payload);
+    const metadata = result.canonicalEvidence[0].metadata;
+
+    expect(metadata.protocol).toBe('https');
+    expect(Object.prototype.hasOwnProperty.call(metadata, '__proto__')).toBeFalsy();
+  });
+
   it('throws a manifest configuration error when secret is missing', () => {
     const payload = getPayload();
     const previousSecret = process.env.FORENSIC_MANIFEST_SECRET;
