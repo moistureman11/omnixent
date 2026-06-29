@@ -19,6 +19,8 @@ import {
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 const DEFAULT_TIME_WINDOW_MINUTES = 10;
+const MAX_CONTENT_PREVIEW_LENGTH = 280;
+const MALICIOUS_CONFIDENCE_THRESHOLD = 55;
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
@@ -134,7 +136,7 @@ function toCanonicalEvidence(finding: RawFinding, index: number, ingestedAt: str
   const parsedFinding = parseBySourceType(finding.sourceType, finding);
   const observedAt = normalizeDate(parsedFinding.observedAt);
   const metadata = parsedFinding.metadata || {};
-  const contentPreview = String(parsedFinding.content || '').slice(0, 280);
+  const contentPreview = String(parsedFinding.content || '').slice(0, MAX_CONTENT_PREVIEW_LENGTH);
   const normalizedIocs = normalizeIocs(parsedFinding.iocs);
   const normalizedEntities = normalizeEntities(parsedFinding.entities);
   const fingerprint = stableStringify({
@@ -327,9 +329,19 @@ export function detectMaliciousActivity(
       heuristicScore: Number((heuristicScore * 100).toFixed(2)),
       modelScore: Number((modelScore * 100).toFixed(2)),
       confidence,
-      malicious: confidence >= 55,
+      malicious: confidence >= MALICIOUS_CONFIDENCE_THRESHOLD,
     };
   });
+}
+
+function getManifestSecret(): string {
+  const secret = process.env.FORENSIC_MANIFEST_SECRET || process.env.OMNIXENT_JWT_SECRET;
+
+  if (!secret) {
+    throw new Error('FORENSIC_MANIFEST_SECRET or OMNIXENT_JWT_SECRET must be set');
+  }
+
+  return String(secret);
 }
 
 function buildManifest(caseId: string, evidence: CanonicalEvidence[], generatedAt: string): SignedManifest {
@@ -338,9 +350,8 @@ function buildManifest(caseId: string, evidence: CanonicalEvidence[], generatedA
     return acc;
   }, {});
 
-  const secret = process.env.FORENSIC_MANIFEST_SECRET || process.env.OMNIXENT_JWT_SECRET || 'development-secret';
   const payload = stableStringify({ caseId, generatedAt, evidenceHashes });
-  const signature = crypto.createHmac('sha256', String(secret)).update(payload).digest('hex');
+  const signature = crypto.createHmac('sha256', getManifestSecret()).update(payload).digest('hex');
 
   return {
     algorithm: 'sha256-hmac',
@@ -380,6 +391,10 @@ export function createIntegrityPipeline(
   };
 }
 
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 export function createExplainableReport(
   caseId: string,
   evidence: CanonicalEvidence[],
@@ -389,6 +404,7 @@ export function createExplainableReport(
   const findings = detections.map((detection) => {
     const evidenceItem = evidence.find((item) => item.evidenceId === detection.evidenceId);
     const sourceRef = evidenceItem ? `${evidenceItem.sourceType}:${evidenceItem.location}` : 'unknown';
+    const safeEvidenceId = escapeSqlLiteral(detection.evidenceId);
 
     return {
       evidenceId: detection.evidenceId,
@@ -397,8 +413,8 @@ export function createExplainableReport(
       rationale: detection.indicators.length ? detection.indicators : ['No direct indicators identified'],
       rawEvidenceRefs: [sourceRef],
       reproducibleQueries: [
-        `SELECT * FROM canonical_evidence WHERE evidence_id = '${detection.evidenceId}'`,
-        `SELECT * FROM detections WHERE evidence_id = '${detection.evidenceId}'`,
+        `SELECT * FROM canonical_evidence WHERE evidence_id = '${safeEvidenceId}'`,
+        `SELECT * FROM detections WHERE evidence_id = '${safeEvidenceId}'`,
       ],
     };
   });

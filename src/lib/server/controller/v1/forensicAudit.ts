@@ -30,9 +30,10 @@ export default async function forensicAuditController(req: Request, res: Respons
       return;
     }
   } catch (e) {
+    console.log(e);
     res.status(401).json({
       success: false,
-      reason: e.message,
+      reason: 'Unauthorized',
     });
     return;
   }
@@ -54,9 +55,10 @@ export default async function forensicAuditController(req: Request, res: Respons
       result,
     });
   } catch (e) {
+    console.log(e);
     res.status(500).json({
       success: false,
-      reason: e.message,
+      reason: 'Unable to process forensic audit request',
     });
   }
 }
